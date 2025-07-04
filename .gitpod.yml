@@ -1,0 +1,27 @@
+image: gitpod/workspace-full
+
+ports:
+  - port: 8765
+    name: Backend
+    onOpen: ignore
+  - port: 3000
+    name: Dashboard
+    onOpen: open-preview
+  - port: 8080
+    name: Visualization
+    onOpen: open-preview
+
+tasks:
+  - name: Backend
+    command: |
+      cd backend
+      pip install -r requirements.txt
+      python functional_twin.py
+
+  - name: Frontend
+    init: |
+      cd frontend
+      npm install
+    command: |
+      cd frontend
+      npm start

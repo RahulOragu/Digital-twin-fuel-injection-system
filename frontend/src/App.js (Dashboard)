@@ -1,0 +1,95 @@
+// Dashboard.jsx
+import React, { useState, useEffect } from 'react';
+import { Gauge, Sparkline } from 'react-gauges';
+import io from 'socket.io-client';
+
+const Dashboard = () => {
+  const [systemState, setSystemState] = useState({});
+  const [faults, setFaults] = useState({});
+  
+  // Connect to WebSocket
+  useEffect(() => {
+    const socket = io('wss://8765-yourworkspace.gitpod.io');
+    socket.on('data', (data) => {
+      setSystemState(JSON.parse(data));
+    });
+    return () => socket.disconnect();
+  }, []);
+
+  // Apply sensor fault
+  const injectFault = (sensor, faultType) => {
+    setFaults({...faults, [sensor]: faultType});
+    // Send fault command to backend
+    fetch('/inject-fault', {
+      method: 'POST',
+      body: JSON.stringify({ sensor, faultType })
+    });
+  };
+
+  return (
+    <div className="dashboard">
+      <div className="control-panel">
+        <h2>Flight Controls</h2>
+        <input 
+          type="range" 
+          min="0" max="100" 
+          value={systemState.throttle || 0}
+          onChange={e => /* Send throttle command */}
+        />
+        <div className="fault-controls">
+          <h3>Fault Injection</h3>
+          <button onClick={() => injectFault('fuel_probe', 'STUCK')}>
+            Fuel Probe Stuck
+          </button>
+          <button onClick={() => injectFault('fuel_probe', 'DRIFT')}>
+            Fuel Probe Drift
+          </button>
+        </div>
+      </div>
+
+      <div className="gauges">
+        <Gauge 
+          value={systemState.fuel_quantity_display || 0}
+          max={TANK_CAPACITY}
+          label="Fuel Quantity (L)"
+          color={faults.fuel_probe ? 'red' : 'green'}
+        />
+        <Gauge 
+          value={systemState.flow_act || 0}
+          max={MAX_FLOW_RATE}
+          label="Fuel Flow (L/hr)"
+        />
+        <Gauge 
+          value={systemState.hp_pressure || 0}
+          min={HP_PRESSURE_RANGE[0]}
+          max={HP_PRESSURE_RANGE[1]}
+          label="HP Pressure (kPa)"
+        />
+      </div>
+
+      <div className="health-monitor">
+        <h3>System Health</h3>
+        <div className="health-bars">
+          <div className="health-bar" style={{width: `${systemState.health?.overall || 100}%`}}>
+            {systemState.health?.overall?.toFixed(1)}%
+          </div>
+        </div>
+        <div className="health-details">
+          <p>Filter: {systemState.health?.filter?.toFixed(1)}%</p>
+          <p>Injectors: {systemState.health?.injectors?.toFixed(1)}%</p>
+        </div>
+      </div>
+
+      <div className="trends">
+        <h3>Parameter Trends</h3>
+        <Sparkline 
+          data={systemState.t45_history || []}
+          max={1300}
+          label="T45 Temp (K)"
+        />
+      </div>
+    </div>
+  );
+};
+
+export default Dashboard;
